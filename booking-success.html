@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tranzit — Бронирование успешно</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="layout">
+  <main class="layout__content booking-status">
+    <div class="icon icon--success"></div>
+    <h1>Бронирование успешно!</h1>
+    <div id="bookingDetails"></div>
+    <p>Оператор свяжется с вами в течение 30 минут для подтверждения.</p>
+    <button class="button button--primary" onclick="location.href='/profile'">Перейти в личный кабинет</button>
+    <button class="button button--secondary" onclick="location.href='/home'">Найти другой рейс</button>
+  </main>
+  <script>
+    // sample — заполняем детали из localStorage или контекста
+    document.getElementById('bookingDetails').innerHTML =
+      "Места: ...<br>Маршрут: ...<br>Дата: ...<br>Время: ...<br>Статус: pending";
+  </script>
+</body>
+</html>

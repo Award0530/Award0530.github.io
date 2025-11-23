@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tranzit — Личный кабинет</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="layout">
+  <header class="layout__header">
+    <button class="button button--secondary" onclick="location.href='/home'">Назад</button>
+    <div class="logo">Tranzit</div>
+  </header>
+  <main class="layout__content">
+    <section class="profile-info card">
+      <h1>Личный кабинет</h1>
+      <div id="profileDetails">Загрузка...</div>
+      <button class="button button--secondary" id="editBtn">Редактировать профиль</button>
+    </section>
+    <nav class="tabs">
+      <button class="button button--primary" onclick="showTab('active')">Активные брони</button>
+      <button class="button button--secondary" onclick="showTab('history')">История поездок</button>
+    </nav>
+    <section id="bookingsActive" class="card"></section>
+    <section id="bookingsHistory" class="card" style="display:none"></section>
+  </main>
+  <script type="module">
+    import { initSupabaseClient, getCurrentUser, fetchUserBookings, cancelBooking } from './supabase.js';
+    const supabase = initSupabaseClient();
+
+    // Профиль
+    async function loadProfile() {
+      const user = await getCurrentUser();
+      // Actual fetch: читать из Supabase таблицы profiles
+      document.getElementById('profileDetails').innerHTML =
+        `${user.firstName} ${user.lastName}<br>Телефон: ${user.phone}<br>Email: ${user.email}`;
+    }
+
+    // Бронирования
+    async function loadBookings() {
+      const user = await getCurrentUser();
+      const { active, history } = await fetchUserBookings(user.id);
+      document.getElementById('bookingsActive').innerHTML = active.length
+        ? active.map(b => `
+          <div class="card card--trip">
+            <strong>${b.route}</strong> · ${b.date} ${b.depTime}<br>
+            Места: ${b.seats.join(', ')} · Статус: <span class="tag-status tag-status--${b.status}">${b.status}</span>
+            <button class="button button--danger" onclick="cancelBooking('${b.id}')">Отменить бронь</button>
+          </div>`).join('')
+        : '<p>Нет активных броней.</p>';
+      document.getElementById('bookingsHistory').innerHTML = history.length
+        ? history.map(b => `
+          <div class="card card--trip">
+            <strong>${b.route}</strong> · ${b.date} ${b.depTime}<br>
+            Места: ${b.seats.join(', ')} · Статус: <span class="tag-status tag-status--${b.status}">${b.status}</span>
+          </div>`).join('')
+        : '<p>Нет истории поездок.</p>';
+    }
+
+    window.showTab = function(tab) {
+      document.getElementById('bookingsActive').style.display = tab === 'active' ? 'block' : 'none';
+      document.getElementById('bookingsHistory').style.display = tab === 'history' ? 'block' : 'none';
+    };
+
+    window.cancelBooking = async function(id) {
+      if (confirm('Точно отменить бронь?')) {
+        await cancelBooking(id);
+        notifyOperatorViaTelegram({ id });
+        loadBookings();
+      }
+    };
+    function notifyOperatorViaTelegram(data) {
+      console.log("Telegram notification:", data);
+      // call backend endpoint here
+    }
+    loadProfile();
+    loadBookings();
+  </script>
+</body>
+</html>

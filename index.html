@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tranzit — Поиск рейсов</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="layout">
+  <header class="layout__header">
+    <div class="logo">Tranzit</div>
+    <nav>
+      <a href="/profile" class="badge badge--user">Личный кабинет</a>
+      <button class="button button--secondary" onclick="logout()">Выйти</button>
+    </nav>
+  </header>
+  <main class="layout__content">
+    <div class="card card--search">
+      <form id="searchForm">
+        <h1>Найти поездку</h1>
+        <select class="select" name="from" required>
+          <option value="">Откуда?</option>
+          <option>Павлодар</option><option>Астана</option>
+          <option>Караганда</option><option>Новосибирск</option><option>Томск</option>
+        </select>
+        <select class="select" name="to" required>
+          <option value="">Куда?</option>
+          <option>Павлодар</option><option>Астана</option>
+          <option>Караганда</option><option>Новосибирск</option><option>Томск</option>
+        </select>
+        <input class="input" type="date" name="date" min="" required>
+        <input class="input" type="number" name="passengers" min="1" max="8" value="1" required>
+        <button class="button button--primary" type="submit">Найти рейсы</button>
+      </form>
+    </div>
+    <section class="promos">
+      <div class="badge badge--promo">Первая поездка — скидка 10%</div>
+      <div class="badge badge--promo">Багаж бесплатно до 12:00</div>
+      <div class="badge badge--promo">Приведи друга — бонусы на скидку</div>
+    </section>
+    <section id="tripsResults" style="display:none"></section>
+    <div class="alert" id="tripsErrors" style="display:none"></div>
+  </main>
+  <script type="module">
+    import { initSupabaseClient, getCurrentUser, fetchTrips } from './supabase.js';
+    const supabase = initSupabaseClient();
+
+    window.logout = async () => {
+      await supabase.auth.signOut();
+      location.href = '/login';
+    };
+
+    // min date = today
+    document.querySelector('input[name="date"]').min = new Date().toISOString().split('T')[0];
+
+    document.getElementById('searchForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const from = f.from.value, to = f.to.value, date = f.date.value, passengers = Number(f.passengers.value);
+      if (from === to) {
+        alert("Необходимо выбрать разные города.");
+        return;
+      }
+      const tripsErrors = document.getElementById('tripsErrors');
+      tripsErrors.style.display = 'none';
+
+      // Запрос рейсов
+      const { error, trips } = await fetchTrips({ from, to, date, passengers });
+      if (error) {
+        tripsErrors.innerText = error.message;
+        tripsErrors.style.display = 'block';
+        return;
+      }
+      const container = document.getElementById('tripsResults');
+      container.style.display = 'block';
+      container.innerHTML = trips.length
+        ? trips.map(trip => `
+          <div class="card card--trip">
+            <div><strong>${trip.from} – ${trip.to}</strong> · ${trip.depTime} → ${trip.arrTime} (${trip.duration})</div>
+            <div>Свободные места: ${trip.freeSeats} из 8</div>
+            <div>Цена: ${trip.price ? `${trip.price} ₽` : "Уточняйте у оператора"}</div>
+            <button class="button button--primary"
+              onclick="chooseTrip('${trip.id}', ${passengers})">Выбрать места</button>
+          </div>`).join('')
+        : "<div class='alert'>Рейсы не найдены</div>";
+    };
+
+    window.chooseTrip = (route_id, passengers) => {
+      localStorage.setItem('selectedTrip', JSON.stringify({ route_id, passengers }));
+      location.href = `/booking/${route_id}`;
+    };
+  </script>
+</body>
+</html>

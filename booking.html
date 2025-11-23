@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tranzit — Выбор мест</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="layout">
+  <header class="layout__header">
+    <button class="button button--secondary" onclick="goBack()">Назад</button>
+    <div class="logo">Tranzit</div>
+  </header>
+  <main class="layout__content">
+    <section id="tripInfo" class="card card--info"></section>
+    <h2>Выбрано мест: <span id="seatsChosen">0</span> из <span id="seatsTotal"></span></h2>
+    <div class="seats-grid" id="seatsGrid"></div>
+    <div class="alert" id="bookingError" style="display:none"></div>
+    <button class="button button--primary" id="bookBtn" disabled>Забронировать</button>
+  </main>
+  <script type="module">
+    import { initSupabaseClient, createBooking } from './supabase.js';
+    const supabase = initSupabaseClient();
+
+    function goBack() { history.back(); }
+
+    const tripData = JSON.parse(localStorage.getItem('selectedTrip'));
+    const route_id = tripData.route_id;
+    const seatsToChoose = +tripData.passengers;
+    document.getElementById('seatsTotal').textContent = seatsToChoose;
+
+    // seats-schema
+    const seatNames = ['1A','1B','1C','1D','2A','2B','2C','2D'];
+    let bookedSeats = [], selectedSeats = [];
+
+    async function loadTripAndSeats() {
+      // Заглушка для tripInfo: actual fetchTrip DB-запрос реализуется в реальном коде
+      document.getElementById('tripInfo').innerHTML = `<strong>Маршрут: </strong>${route_id}<br>Дата: ...<br>Время: ...`;
+
+      // Запрос занятых мест
+      // Realtime подписка на изменения бронирования
+      bookedSeats = await fetchBookedSeats(route_id);
+      renderSeats();
+    }
+
+    function renderSeats() {
+      document.getElementById('seatsGrid').innerHTML = seatNames.map(seat => {
+        const booked = bookedSeats.includes(seat);
+        const selected = selectedSeats.includes(seat);
+        const cls = booked ? 'seat--booked' : selected ? 'seat--selected' : 'seat--free';
+        const disabled = booked ? 'disabled' : '';
+        return `<button class="seat ${cls}" ${disabled} onclick="selectSeat('${seat}')">${seat}</button>`;
+      }).join('');
+      document.getElementById('seatsChosen').textContent = selectedSeats.length;
+      document.getElementById('bookBtn').disabled = selectedSeats.length !== seatsToChoose;
+    }
+
+    window.selectSeat = function(seat) {
+      if (bookedSeats.includes(seat)) return;
+      if (selectedSeats.includes(seat))
+        selectedSeats = selectedSeats.filter(s => s !== seat);
+      else {
+        if (selectedSeats.length >= seatsToChoose)
+          return showBookingError("Максимум мест выбрано!");
+        selectedSeats.push(seat);
+      }
+      document.getElementById('bookingError').style.display = 'none';
+      renderSeats();
+    };
+
+    function showBookingError(msg) {
+      const errorBox = document.getElementById('bookingError');
+      errorBox.innerText = msg;
+      errorBox.style.display = 'block';
+    }
+
+    document.getElementById('bookBtn').onclick = async () => {
+      if (selectedSeats.length !== seatsToChoose) return;
+      // Создать бронь(и)
+      const bookingData = { route_id, seats: selectedSeats };
+      try {
+        await createBooking(bookingData);
+        notifyOperatorViaTelegram(bookingData);
+        location.href = '/booking-success';
+      } catch (e) {
+        showBookingError("Ошибка: не удалось забронировать.");
+      }
+    };
+    // Telegram-заглушка
+    function notifyOperatorViaTelegram(data) {
+      console.log("Telegram notification:", data);
+      // call backend endpoint here
+    }
+
+    // Имитация Realtime: опрашиваем раз в 2 секунды
+    async function fakeRealtime() {
+      setInterval(async () => {
+        bookedSeats = await fetchBookedSeats(route_id);
+        renderSeats();
+      }, 2000);
+    }
+
+    async function fetchBookedSeats(route_id) {
+      // Заглушка. Здесь реально читать брони из Supabase по route_id!
+      return []; // Пример: ['1A','2B']
+    }
+
+    loadTripAndSeats();
+    fakeRealtime();
+  </script>
+</body>
+</html>
