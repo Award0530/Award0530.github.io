@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Tranzit — Регистрация</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="layout">
+  <header class="layout__header">
+    <div class="logo">Tranzit</div>
+  </header>
+  <main class="layout__content">
+    <form id="registerForm" class="card card--form">
+      <h1>Регистрация</h1>
+      <input class="input" type="text" name="firstName" placeholder="Имя" required>
+      <input class="input" type="text" name="lastName" placeholder="Фамилия" required>
+      <input class="input" type="tel" name="phone" placeholder="+7 XXX XXX-XX-XX" pattern="^(\+7)\s\d{3}\s\d{3}-\d{2}-\d{2}$" required>
+      <input class="input" type="email" name="email" placeholder="Email" required>
+      <input class="input" type="password" name="password" placeholder="Пароль (минимум 8)" minlength="8" required>
+      <input class="input" type="password" name="repeatPassword" placeholder="Повторите пароль" minlength="8" required>
+      <div class="form__row">
+        <input type="checkbox" id="agree" required>
+        <label for="agree">Согласен с политикой обработки данных</label>
+      </div>
+      <button class="button button--primary" type="submit">Зарегистрироваться</button>
+      <div class="form__footer">
+        <a href="/login">Уже есть аккаунт? Войти</a>
+      </div>
+      <div class="alert" id="regErrors" style="display:none"></div>
+    </form>
+  </main>
+  <script type="module">
+    import { initSupabaseClient } from './supabase.js';
+    const supabase = initSupabaseClient();
+
+    document.getElementById('registerForm').onsubmit = async (e) => {
+      e.preventDefault();
+      const f = e.target;
+      const phone = f.phone.value.trim();
+      const email = f.email.value.trim();
+      const password = f.password.value;
+      const repeat = f.repeatPassword.value;
+      const errors = [];
+      if (!/^\+7\s\d{3}\s\d{3}-\d{2}-\d{2}$/.test(phone)) errors.push("Телефон: неверный формат.");
+      if (password.length < 8) errors.push("Пароль должен быть минимум 8 символов.");
+      if (password !== repeat) errors.push("Пароли не совпадают.");
+      if (!f.agree.checked) errors.push("Подтвердите согласие с политикой.");
+
+      const errorBox = document.getElementById('regErrors');
+      if (errors.length) {
+        errorBox.innerHTML = errors.join('<br>');
+        errorBox.style.display = 'block';
+        return;
+      }
+      errorBox.style.display = 'none';
+      const { error, data } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { firstName: f.firstName.value, lastName: f.lastName.value, phone }}
+      });
+      if (error) {
+        errorBox.innerText = error.message;
+        errorBox.style.display = 'block';
+      } else {
+        location.href = '/home';
+      }
+    };
+  </script>
+</body>
+</html>
